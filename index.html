@@ -16,6 +16,17 @@
             color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); opacity: 0.8; }
+            50% { transform: translateY(-15px) rotate(5deg); opacity: 1; }
+            100% { transform: translateY(0px) rotate(0deg); opacity: 0.8; }
+        }
+        .floating-ghost {
+            animation: float 4s ease-in-out infinite;
+        }
+        .floating-ghost-delayed {
+            animation: float 5s ease-in-out infinite 2s;
+        }
     </style>
 </head>
 <body class="h-[100dvh] w-screen overflow-hidden flex flex-col justify-between select-none">
@@ -26,6 +37,16 @@
             <span class="text-2xl">🎃</span>
             <h1 class="text-lg font-bold tracking-wider text-orange-400">HALLOWEEN AR</h1>
         </div>
+        <div class="flex items-center space-x-2">
+            <!-- ゴーストON/OFFボタン -->
+            <button id="toggle-ghosts-btn" class="p-2.5 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full border border-white/10 transition text-sm" title="お化けの表示/非表示">
+                👻
+            </button>
+            <!-- カメラ切り替えボタン -->
+            <button id="switch-camera-btn" class="p-2.5 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full border border-white/10 transition" title="カメラ切り替え">
+                🔄
+            </button>
+        </div>
     </header>
 
     <!-- メインビューポート (カメラ & AR Canvas) -->
@@ -34,6 +55,14 @@
         <video id="webcam" class="absolute opacity-0 pointer-events-none" playsinline></video>
         <!-- AR描画キャンバス -->
         <canvas id="output-canvas" class="absolute inset-0 w-full h-full object-cover -scale-x-100"></canvas>
+
+        <!-- 背景の小さなゴースト（浮遊装飾・オーバーレイ） -->
+        <div id="ghosts-container" class="absolute inset-0 pointer-events-none z-20 overflow-hidden">
+            <div class="absolute top-20 left-6 text-3xl floating-ghost opacity-70">👻</div>
+            <div class="absolute top-32 right-10 text-4xl floating-ghost-delayed opacity-60">👻</div>
+            <div class="absolute bottom-40 left-10 text-2xl floating-ghost-delayed opacity-50">🦇</div>
+            <div class="absolute bottom-32 right-8 text-3xl floating-ghost opacity-60">👻</div>
+        </div>
 
         <!-- ローディング・スタートオーバーレイ -->
         <div id="loading-overlay" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-6 text-center">
@@ -80,6 +109,8 @@
         let faceLandmarker;
         let camera = null;
         let currentStyle = "classic";
+        let currentFacingMode = "user";
+        let ghostsVisible = true;
         let lastVideoTime = -1;
         let results = undefined;
 
@@ -92,6 +123,9 @@
         const startBtn = document.getElementById("start-btn");
         const spinner = document.getElementById("spinner");
         const captureBtn = document.getElementById("capture-btn");
+        const switchCameraBtn = document.getElementById("switch-camera-btn");
+        const toggleGhostsBtn = document.getElementById("toggle-ghosts-btn");
+        const ghostsContainer = document.getElementById("ghosts-container");
         const flash = document.getElementById("flash");
         const styleBtns = document.querySelectorAll(".style-btn");
 
@@ -158,12 +192,11 @@
             }
         }
 
-        // スタートボタンクリック
-        startBtn.addEventListener("click", async () => {
-            startBtn.classList.add("hidden");
-            spinner.classList.remove("hidden");
-            loadingTitle.textContent = "カメラを起動中...";
-            loadingDesc.textContent = "アクセスを許可してください。";
+        // カメラ起動関数
+        async function startCamera() {
+            if (camera) {
+                try { camera.stop(); } catch(e) {}
+            }
 
             try {
                 camera = new Camera(video, {
@@ -171,17 +204,50 @@
                         await onResults();
                     },
                     width: 1280,
-                    height: 720
+                    height: 720,
+                    facingMode: currentFacingMode
                 });
                 await camera.start();
                 loadingOverlay.classList.add("hidden");
             } catch (err) {
                 console.error(err);
                 spinner.classList.add("hidden");
-                loadingTitle.textContent = "カメラが拒否されました";
-                loadingDesc.textContent = "ブラウザの設定を確認してもう一度お試しください。";
+                loadingTitle.textContent = "カメラアクセスエラー";
+                loadingDesc.textContent = "ブラウザのカメラ権限を確認してください。";
                 startBtn.textContent = "🔄 もう一度試す";
                 startBtn.classList.remove("hidden");
+            }
+        }
+
+        // スタートボタンクリック
+        startBtn.addEventListener("click", async () => {
+            startBtn.classList.add("hidden");
+            spinner.classList.remove("hidden");
+            loadingTitle.textContent = "カメラを起動中...";
+            loadingDesc.textContent = "アクセスを許可してください。";
+            await startCamera();
+        });
+
+        // カメラ切り替えボタン
+        switchCameraBtn.addEventListener("click", async () => {
+            currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+            loadingOverlay.classList.remove("hidden");
+            loadingTitle.textContent = "カメラを切り替え中...";
+            loadingDesc.textContent = "少々お待ちください。";
+            spinner.classList.remove("hidden");
+            startBtn.classList.add("hidden");
+            await startCamera();
+        });
+
+        // ゴーストON/OFFボタン
+        toggleGhostsBtn.addEventListener("click", () => {
+            ghostsVisible = !ghostsVisible;
+            if (ghostsVisible) {
+                ghostsContainer.classList.remove("hidden");
+                toggleGhostsBtn.style.opacity = "1";
+            } else {
+                ghostsContainer.classList.add("hidden");
+                toggleGhostsBtn.style.opacity = "0.4";
             }
         });
 
@@ -199,7 +265,7 @@
             });
         });
 
-        // カボチャヘルメット描画関数
+        // カボチャヘルメット描画関数（目と鼻を完全にくり抜いてカメラ背景を透かす）
         function drawPumpkinHelmet(landmarks) {
             const leftEar = landmarks[234];
             const rightEar = landmarks[454];
@@ -220,12 +286,48 @@
             ctx.translate(cx, cy);
             ctx.rotate(angle);
 
-            // カボチャ本体（外側の楕円から中央の顔穴をくり抜くパス）
+            // 【重要】カボチャ本体と、中央の顔穴 ＋ 目・鼻の穴をまとめて「evenodd」で一括くり抜き合成するパス
             ctx.beginPath();
+            // 1. 外側の楕円（カボチャ全体）
             ctx.ellipse(0, 0, radius * 0.9, radius * 1.1, 0, 0, Math.PI * 2);
+            
+            // 2. 内側の顔型穴
             const holeW = radius * 0.55;
             const holeH = radius * 0.70;
             ctx.ellipse(0, radius * 0.05, holeW, holeH, 0, 0, Math.PI * 2, true);
+
+            // 3. 目と鼻の形もここで逆向き(true)にしてパスを追加し、カメラ映像がそのまま透けるようにくり抜く
+            if (currentStyle === "classic") {
+                // 左目（三角形）
+                ctx.moveTo(-radius * 0.25, -radius * 0.20);
+                ctx.lineTo(-radius * 0.45, -radius * 0.35);
+                ctx.lineTo(-radius * 0.55, -radius * 0.20);
+                ctx.closePath();
+                // 右目（三角形）
+                ctx.moveTo(radius * 0.25, -radius * 0.20);
+                ctx.lineTo(radius * 0.45, -radius * 0.35);
+                ctx.lineTo(radius * 0.55, -radius * 0.20);
+                ctx.closePath();
+                // 鼻（三角形）
+                ctx.moveTo(-radius * 0.1, radius * 0.05);
+                ctx.lineTo(0, -radius * 0.12);
+                ctx.lineTo(radius * 0.1, radius * 0.05);
+                ctx.closePath();
+            } else {
+                // イーヴィル目・鼻
+                ctx.moveTo(-radius * 0.20, -radius * 0.25);
+                ctx.lineTo(-radius * 0.55, -radius * 0.40);
+                ctx.lineTo(-radius * 0.45, -radius * 0.15);
+                ctx.closePath();
+                ctx.moveTo(radius * 0.20, -radius * 0.25);
+                ctx.lineTo(radius * 0.55, -radius * 0.40);
+                ctx.lineTo(radius * 0.45, -radius * 0.15);
+                ctx.closePath();
+                ctx.moveTo(-radius * 0.08, 0);
+                ctx.lineTo(0, -radius * 0.15);
+                ctx.lineTo(radius * 0.08, 0);
+                ctx.closePath();
+            }
 
             ctx.fillStyle = "#ff6600";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
@@ -233,7 +335,7 @@
             ctx.fill("evenodd");
             ctx.shadowBlur = 0;
 
-            // 縦スジ（アーチ状のラインで立体感を表現）
+            // カボチャの縦スジ（立体感）
             ctx.strokeStyle = "#cc4400";
             ctx.lineWidth = 3;
             [-0.6, -0.3, 0.3, 0.6].forEach(offset => {
@@ -243,55 +345,7 @@
                 ctx.stroke();
             });
 
-            // 目と鼻（黒塗り）
-            ctx.fillStyle = "#111111";
-            if (currentStyle === "classic") {
-                // 左目
-                ctx.beginPath();
-                ctx.moveTo(-radius * 0.45, -radius * 0.35);
-                ctx.lineTo(-radius * 0.25, -radius * 0.20);
-                ctx.lineTo(-radius * 0.55, -radius * 0.20);
-                ctx.closePath();
-                ctx.fill();
-                // 右目
-                ctx.beginPath();
-                ctx.moveTo(radius * 0.45, -radius * 0.35);
-                ctx.lineTo(radius * 0.55, -radius * 0.20);
-                ctx.lineTo(radius * 0.25, -radius * 0.20);
-                ctx.closePath();
-                ctx.fill();
-                // 鼻
-                ctx.beginPath();
-                ctx.moveTo(0, -radius * 0.12);
-                ctx.lineTo(radius * 0.1, radius * 0.05);
-                ctx.lineTo(-radius * 0.1, radius * 0.05);
-                ctx.closePath();
-                ctx.fill();
-            } else {
-                // 左目 (イーヴィル)
-                ctx.beginPath();
-                ctx.moveTo(-radius * 0.55, -radius * 0.40);
-                ctx.lineTo(-radius * 0.20, -radius * 0.25);
-                ctx.lineTo(-radius * 0.45, -radius * 0.15);
-                ctx.closePath();
-                ctx.fill();
-                // 右目 (イーヴィル)
-                ctx.beginPath();
-                ctx.moveTo(radius * 0.55, -radius * 0.40);
-                ctx.lineTo(radius * 0.45, -radius * 0.15);
-                ctx.lineTo(radius * 0.20, -radius * 0.25);
-                ctx.closePath();
-                ctx.fill();
-                // 鼻
-                ctx.beginPath();
-                ctx.moveTo(0, -radius * 0.15);
-                ctx.lineTo(radius * 0.08, 0);
-                ctx.lineTo(-radius * 0.08, 0);
-                ctx.closePath();
-                ctx.fill();
-            }
-
-            // ヘタ
+            // ヘタ（茎）
             ctx.fillStyle = "#2e7d32";
             ctx.beginPath();
             ctx.moveTo(-radius * 0.1, -radius * 1.05);
