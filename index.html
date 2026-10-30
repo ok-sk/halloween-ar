@@ -15,13 +15,6 @@
             color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
-        .pumpkin-glow {
-            animation: glow 1.5s ease-in-out infinite alternate;
-        }
-        @keyframes glow {
-            from { filter: drop-shadow(0 0 10px rgba(255, 107, 0, 0.6)); }
-            to { filter: drop-shadow(0 0 25px rgba(255, 140, 0, 0.9)); }
-        }
     </style>
 </head>
 <body class="h-[100dvh] w-screen overflow-hidden flex flex-col justify-between select-none">
@@ -36,22 +29,19 @@
             <button id="switch-camera-btn" class="p-2.5 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full border border-white/10 transition">
                 🔄
             </button>
-            <button id="info-btn" class="p-2.5 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full border border-white/10 transition">
-                ℹ️
-            </button>
         </div>
     </header>
 
     <!-- メインビューポート (カメラ & AR Canvas) -->
     <main class="relative flex-1 w-full h-full overflow-hidden bg-black flex items-center justify-center">
-        <!-- カメラ映像（非表示：キャンバスに描画するため） -->
-        <video id="webcam" class="absolute inset-0 w-full h-full object-cover -scale-x-100 hidden" playsinline></video>
+        <!-- カメラ映像（DOM上に維持して再生を確実にする） -->
+        <video id="webcam" class="absolute opacity-0 pointer-events-none" autoplay playsinline muted></video>
         <!-- AR描画キャンバス -->
         <canvas id="output-canvas" class="absolute inset-0 w-full h-full object-cover -scale-x-100"></canvas>
 
         <!-- ローディング・権限エラー表示オーバーレイ -->
         <div id="loading-overlay" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-6 text-center">
-            <div class="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <div id="spinner" class="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
             <h2 id="loading-title" class="text-xl font-bold text-orange-400 mb-2">ARシステムを準備中...</h2>
             <p id="loading-desc" class="text-sm text-gray-300 max-w-xs mb-6">カメラの読み込みとAIモデルの初期化を行っています。</p>
             <button id="start-btn" class="hidden px-8 py-3.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold rounded-full shadow-lg shadow-orange-500/40 transition transform active:scale-95 pointer-events-auto">
@@ -93,7 +83,7 @@
 
         let faceLandmarker;
         let webcamRunning = false;
-        let currentFacingMode = "user"; // プレビュー用にフロントカメラデフォルト
+        let currentFacingMode = "user";
         let currentStyle = "classic";
         let lastVideoTime = -1;
         let results = undefined;
@@ -105,6 +95,7 @@
         const loadingTitle = document.getElementById("loading-title");
         const loadingDesc = document.getElementById("loading-desc");
         const startBtn = document.getElementById("start-btn");
+        const spinner = document.getElementById("spinner");
         const captureBtn = document.getElementById("capture-btn");
         const switchCameraBtn = document.getElementById("switch-camera-btn");
         const flash = document.getElementById("flash");
@@ -126,11 +117,13 @@
                     numFaces: 1
                 });
                 
+                spinner.classList.add("hidden");
                 loadingTitle.textContent = "カボチャ変身ARへようこそ！";
-                loadingDesc.textContent = "カメラで頭部をリアルタイム追跡し、ジャック・オー・ランタンを被せます。スタートボタンを押してカメラの使用を許可してください。";
+                loadingDesc.textContent = "カメラで頭部をリアルタイム追跡し、ジャック・オー・ランタンを被せます。スタートボタンを押してください。";
                 startBtn.classList.remove("hidden");
             } catch (error) {
                 console.error(error);
+                spinner.classList.add("hidden");
                 loadingTitle.textContent = "初期化エラー";
                 loadingDesc.textContent = "AIモデルの読み込みに失敗しました。ページを再読み込みしてください。";
             }
@@ -141,6 +134,7 @@
         // カメラ起動
         async function startCamera() {
             startBtn.classList.add("hidden");
+            spinner.classList.remove("hidden");
             loadingTitle.textContent = "カメラを起動中...";
             loadingDesc.textContent = "ブラウザのカメラアクセスを許可してください。";
 
@@ -154,14 +148,28 @@
                 };
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = stream;
-                video.addEventListener("loadeddata", () => {
+                
+                // Androidで確実に再生を開始させる
+                await video.play();
+
+                video.onloadedmetadata = () => {
                     webcamRunning = true;
                     loadingOverlay.classList.add("hidden");
                     resizeCanvas();
                     predictWebcam();
-                });
+                };
+                
+                // すでにメタデータが読み込まれている場合の保険
+                if (video.readyState >= 2) {
+                    webcamRunning = true;
+                    loadingOverlay.classList.add("hidden");
+                    resizeCanvas();
+                    predictWebcam();
+                }
+
             } catch (err) {
                 console.error(err);
+                spinner.classList.add("hidden");
                 loadingTitle.textContent = "カメラアクセスが拒否されました";
                 loadingDesc.textContent = "ブラウザの設定からカメラへのアクセスを許可し、ボタンを押して再試行してください。";
                 startBtn.textContent = "🔄 もう一度試す";
@@ -209,15 +217,21 @@
 
             if (video.currentTime !== lastVideoTime) {
                 lastVideoTime = video.currentTime;
-                if (faceLandmarker) {
-                    results = faceLandmarker.detectForVideo(video, performance.now());
+                if (faceLandmarker && video.videoWidth > 0) {
+                    try {
+                        results = faceLandmarker.detectForVideo(video, performance.now());
+                    } catch (e) {
+                        console.error(e);
+                    }
                 }
             }
 
             // キャンバス初期化（カメラ映像描画）
             ctx.save();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            if (video.readyState >= video.HAVE_CURRENT_DATA) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            }
             ctx.restore();
 
             // 顔が検出された場合、ジャック・オー・ランタンを被せる
@@ -233,7 +247,6 @@
         function drawPumpkinHelmet(landmarks) {
             const leftEar = landmarks[234];
             const rightEar = landmarks[454];
-            const noseTip = landmarks[1];
             const chin = landmarks[152];
             const forehead = landmarks[10];
 
@@ -245,7 +258,7 @@
             const faceWidth = Math.sqrt(dx * dx + dy * dy);
             
             const angle = Math.atan2(dy, dx);
-            const radius = faceWidth * 1.35; // 被り物の大きさ
+            const radius = faceWidth * 1.35;
 
             ctx.save();
             ctx.translate(cx, cy);
@@ -253,9 +266,7 @@
 
             // 1. カボチャ本体（外側の楕円と内側の顔型穴を組み合わせたパス）
             ctx.beginPath();
-            // 外側輪郭
             ctx.ellipse(0, 0, radius * 0.9, radius * 1.1, 0, 0, Math.PI * 2);
-            // 内側：顔のくり抜き穴（パスの方向を逆にしてくり抜く設定用）
             const holeW = radius * 0.55;
             const holeH = radius * 0.70;
             ctx.ellipse(0, radius * 0.05, holeW, holeH, 0, 0, Math.PI * 2, true);
@@ -263,10 +274,10 @@
             ctx.fillStyle = "#ff6600";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 20;
-            ctx.fill(currentStyle === "evil" ? "evenodd" : "evenodd");
+            ctx.fill("evenodd");
             ctx.shadowBlur = 0;
 
-            // カボチャの縦スジ（立体感）
+            // カボチャの縦スジ
             ctx.strokeStyle = "#cc4400";
             ctx.lineWidth = 4;
             for (let i = -3; i <= 3; i++) {
@@ -280,7 +291,6 @@
             ctx.fillStyle = "#111111";
             
             if (currentStyle === "classic") {
-                // クラシック：三角形の目・鼻
                 // 左目
                 ctx.beginPath();
                 ctx.moveTo(-radius * 0.45, -radius * 0.35);
@@ -305,8 +315,7 @@
                 ctx.closePath();
                 ctx.fill();
             } else {
-                // イーヴィル：つり目の鋭い目・鼻
-                // 左目
+                // 左目 (イーヴィル)
                 ctx.beginPath();
                 ctx.moveTo(-radius * 0.55, -radius * 0.40);
                 ctx.lineTo(-radius * 0.20, -radius * 0.25);
@@ -314,7 +323,7 @@
                 ctx.closePath();
                 ctx.fill();
 
-                // 右目
+                // 右目 (イーヴィル)
                 ctx.beginPath();
                 ctx.moveTo(radius * 0.55, -radius * 0.40);
                 ctx.lineTo(radius * 0.45, -radius * 0.15);
@@ -348,13 +357,11 @@
         captureBtn.addEventListener("click", () => {
             if (!webcamRunning) return;
 
-            // フラッシュアニメーション
             flash.style.opacity = "1";
             setTimeout(() => {
                 flash.style.opacity = "0";
             }, 300);
 
-            // ダウンロードリンク生成
             const link = document.createElement("a");
             link.download = `halloween-ar-${Date.now()}.png`;
             link.href = canvas.toDataURL("image/png");
