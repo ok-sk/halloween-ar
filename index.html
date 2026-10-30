@@ -48,7 +48,7 @@
 
     <!-- フッターコントロール -->
     <footer class="absolute bottom-0 left-0 right-0 z-30 p-4 pb-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col items-center space-y-3 pointer-events-auto">
-        <!-- スタイル選択 -->
+        <!-- スタイル選択 (クラシック / イーヴィル) -->
         <div class="flex items-center space-x-2 bg-black/50 backdrop-blur-md p-1.5 rounded-full border border-white/10">
             <button class="style-btn px-4 py-1.5 text-xs font-semibold rounded-full bg-orange-600 text-white transition shadow" data-style="classic">
                 🎃 クラシック
@@ -220,7 +220,7 @@
             ctx.translate(cx, cy);
             ctx.rotate(angle);
 
-            // カボチャ本体（くり抜き合成）
+            // カボチャ本体（外側の楕円から中央の顔穴をくり抜くパス）
             ctx.beginPath();
             ctx.ellipse(0, 0, radius * 0.9, radius * 1.1, 0, 0, Math.PI * 2);
             const holeW = radius * 0.55;
@@ -233,15 +233,15 @@
             ctx.fill("evenodd");
             ctx.shadowBlur = 0;
 
-            // 縦スジ
+            // 縦スジ（アーチ状のラインで立体感を表現）
             ctx.strokeStyle = "#cc4400";
-            ctx.lineWidth = 4;
-            for (let i = -3; i <= 3; i++) {
-                if (i === 0) continue;
+            ctx.lineWidth = 3;
+            [-0.6, -0.3, 0.3, 0.6].forEach(offset => {
                 ctx.beginPath();
-                ctx.ellipse(i * (radius * 0.25), 0, radius * 0.15, radius * 1.05, i * 0.1, 0, Math.PI * 2);
+                ctx.moveTo(radius * offset, -radius * 0.9);
+                ctx.quadraticCurveTo(radius * (offset * 1.5), 0, radius * offset, radius * 0.95);
                 ctx.stroke();
-            }
+            });
 
             // 目と鼻（黒塗り）
             ctx.fillStyle = "#111111";
