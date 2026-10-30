@@ -315,50 +315,50 @@
             if (currentStyle === "classic") {
                 // 左目
                 ctx.beginPath();
-                ctx.moveTo(-radius * 0.35, -radius * 0.45);
-                ctx.lineTo(-radius * 0.15, -radius * 0.30);
-                ctx.lineTo(-radius * 0.55, -radius * 0.30);
+                ctx.moveTo(-radius * 0.35, -radius * 0.95);
+                ctx.lineTo(-radius * 0.15, -radius * 0.80);
+                ctx.lineTo(-radius * 0.55, -radius * 0.80);
                 ctx.closePath();
                 ctx.fill();
 
                 // 右目
                 ctx.beginPath();
-                ctx.moveTo(radius * 0.35, -radius * 0.45);
-                ctx.lineTo(radius * 0.55, -radius * 0.30);
-                ctx.lineTo(radius * 0.15, -radius * 0.30);
+                ctx.moveTo(radius * 0.35, -radius * 0.95);
+                ctx.lineTo(radius * 0.55, -radius * 0.80);
+                ctx.lineTo(radius * 0.15, -radius * 0.80);
                 ctx.closePath();
                 ctx.fill();
 
                 // 鼻
                 ctx.beginPath();
-                ctx.moveTo(0, -radius * 0.38);
-                ctx.lineTo(radius * 0.1, -radius * 0.22);
-                ctx.lineTo(-radius * 0.1, -radius * 0.22);
+                ctx.moveTo(0, -radius * 0.88);
+                ctx.lineTo(radius * 0.1, -radius * 0.72);
+                ctx.lineTo(-radius * 0.1, -radius * 0.72);
                 ctx.closePath();
                 ctx.fill();
             } else {
                 // イーヴィル（つり目・鋭い鼻）
                 // 左目
                 ctx.beginPath();
-                ctx.moveTo(-radius * 0.45, -radius * 0.50);
-                ctx.lineTo(-radius * 0.15, -radius * 0.35);
-                ctx.lineTo(-radius * 0.35, -radius * 0.25);
+                ctx.moveTo(-radius * 0.45, -radius * 1.00);
+                ctx.lineTo(-radius * 0.15, -radius * 0.85);
+                ctx.lineTo(-radius * 0.35, -radius * 0.75);
                 ctx.closePath();
                 ctx.fill();
 
                 // 右目
                 ctx.beginPath();
-                ctx.moveTo(radius * 0.45, -radius * 0.50);
-                ctx.lineTo(radius * 0.35, -radius * 0.25);
-                ctx.lineTo(radius * 0.15, -radius * 0.35);
+                ctx.moveTo(radius * 0.45, -radius * 1.00);
+                ctx.lineTo(radius * 0.35, -radius * 0.75);
+                ctx.lineTo(radius * 0.15, -radius * 0.85);
                 ctx.closePath();
                 ctx.fill();
 
                 // 鼻
                 ctx.beginPath();
-                ctx.moveTo(0, -radius * 0.40);
-                ctx.lineTo(radius * 0.08, -radius * 0.25);
-                ctx.lineTo(-radius * 0.08, -radius * 0.25);
+                ctx.moveTo(0, -radius * 0.90);
+                ctx.lineTo(radius * 0.08, -radius * 0.75);
+                ctx.lineTo(-radius * 0.08, -radius * 0.75);
                 ctx.closePath();
                 ctx.fill();
             }
