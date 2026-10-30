@@ -265,7 +265,7 @@
             });
         });
 
-        // カボチャヘルメット描画関数（目と鼻を完全にくり抜いてカメラ背景を透かす）
+        // カボチャヘルメット描画関数（目・鼻を上部に配置し、黒色で塗りつぶし）
         function drawPumpkinHelmet(landmarks) {
             const leftEar = landmarks[234];
             const rightEar = landmarks[454];
@@ -286,48 +286,13 @@
             ctx.translate(cx, cy);
             ctx.rotate(angle);
 
-            // 【重要】カボチャ本体と、中央の顔穴 ＋ 目・鼻の穴をまとめて「evenodd」で一括くり抜き合成するパス
+            // 1. カボチャ本体（外側の楕円 ＆ 中央の顔穴のみevenoddでくり抜き）
             ctx.beginPath();
-            // 1. 外側の楕円（カボチャ全体）
             ctx.ellipse(0, 0, radius * 0.9, radius * 1.1, 0, 0, Math.PI * 2);
             
-            // 2. 内側の顔型穴
             const holeW = radius * 0.55;
             const holeH = radius * 0.70;
             ctx.ellipse(0, radius * 0.05, holeW, holeH, 0, 0, Math.PI * 2, true);
-
-            // 3. 目と鼻の形もここで逆向き(true)にしてパスを追加し、カメラ映像がそのまま透けるようにくり抜く
-            if (currentStyle === "classic") {
-                // 左目（三角形）
-                ctx.moveTo(-radius * 0.25, -radius * 0.20);
-                ctx.lineTo(-radius * 0.45, -radius * 0.35);
-                ctx.lineTo(-radius * 0.55, -radius * 0.20);
-                ctx.closePath();
-                // 右目（三角形）
-                ctx.moveTo(radius * 0.25, -radius * 0.20);
-                ctx.lineTo(radius * 0.45, -radius * 0.35);
-                ctx.lineTo(radius * 0.55, -radius * 0.20);
-                ctx.closePath();
-                // 鼻（三角形）
-                ctx.moveTo(-radius * 0.1, radius * 0.05);
-                ctx.lineTo(0, -radius * 0.12);
-                ctx.lineTo(radius * 0.1, radius * 0.05);
-                ctx.closePath();
-            } else {
-                // イーヴィル目・鼻
-                ctx.moveTo(-radius * 0.20, -radius * 0.25);
-                ctx.lineTo(-radius * 0.55, -radius * 0.40);
-                ctx.lineTo(-radius * 0.45, -radius * 0.15);
-                ctx.closePath();
-                ctx.moveTo(radius * 0.20, -radius * 0.25);
-                ctx.lineTo(radius * 0.55, -radius * 0.40);
-                ctx.lineTo(radius * 0.45, -radius * 0.15);
-                ctx.closePath();
-                ctx.moveTo(-radius * 0.08, 0);
-                ctx.lineTo(0, -radius * 0.15);
-                ctx.lineTo(radius * 0.08, 0);
-                ctx.closePath();
-            }
 
             ctx.fillStyle = "#ff6600";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
@@ -345,7 +310,60 @@
                 ctx.stroke();
             });
 
-            // ヘタ（茎）
+            // 2. 目と鼻（カボチャの上部・おでこ付近のオレンジ部分に、黒色で描画）
+            ctx.fillStyle = "#111111";
+            if (currentStyle === "classic") {
+                // 左目
+                ctx.beginPath();
+                ctx.moveTo(-radius * 0.35, -radius * 0.45);
+                ctx.lineTo(-radius * 0.15, -radius * 0.30);
+                ctx.lineTo(-radius * 0.55, -radius * 0.30);
+                ctx.closePath();
+                ctx.fill();
+
+                // 右目
+                ctx.beginPath();
+                ctx.moveTo(radius * 0.35, -radius * 0.45);
+                ctx.lineTo(radius * 0.55, -radius * 0.30);
+                ctx.lineTo(radius * 0.15, -radius * 0.30);
+                ctx.closePath();
+                ctx.fill();
+
+                // 鼻
+                ctx.beginPath();
+                ctx.moveTo(0, -radius * 0.38);
+                ctx.lineTo(radius * 0.1, -radius * 0.22);
+                ctx.lineTo(-radius * 0.1, -radius * 0.22);
+                ctx.closePath();
+                ctx.fill();
+            } else {
+                // イーヴィル（つり目・鋭い鼻）
+                // 左目
+                ctx.beginPath();
+                ctx.moveTo(-radius * 0.45, -radius * 0.50);
+                ctx.lineTo(-radius * 0.15, -radius * 0.35);
+                ctx.lineTo(-radius * 0.35, -radius * 0.25);
+                ctx.closePath();
+                ctx.fill();
+
+                // 右目
+                ctx.beginPath();
+                ctx.moveTo(radius * 0.45, -radius * 0.50);
+                ctx.lineTo(radius * 0.35, -radius * 0.25);
+                ctx.lineTo(radius * 0.15, -radius * 0.35);
+                ctx.closePath();
+                ctx.fill();
+
+                // 鼻
+                ctx.beginPath();
+                ctx.moveTo(0, -radius * 0.40);
+                ctx.lineTo(radius * 0.08, -radius * 0.25);
+                ctx.lineTo(-radius * 0.08, -radius * 0.25);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // 3. ヘタ（茎）
             ctx.fillStyle = "#2e7d32";
             ctx.beginPath();
             ctx.moveTo(-radius * 0.1, -radius * 1.05);
